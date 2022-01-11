@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="https://cdn.jsdelivr.net/npm/vega@5.21.0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-lite@5.2.0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-embed@6.20.0"></script>
+</head>
+<body>
+  <div id="vis"/>
+  <script>
+    const spec = {
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "description": "Line plots that provide information regarding Covid-19 Vaccination Campaign in Italy. You can select your area of interest in the legend at the top of the visualization.",
+  "width": 800,
+  "title": {
+    "text": "Covid-19 Vaccination Campaign",
+    "fontSize": 40,
+    "color": "#2A277C",
+    "font": "Marker Felt",
+    "baseline": "bottom",
+    "fontWeight": "bolder",
+    "anchor": "middle",
+    "dy": 80
+  },
+  "data": {
+    "url": "https://raw.githubusercontent.com/Francesca-2803/Covid/main/Covid_data.csv"
+  },
+  "transform": [
+    {
+      "window": [
+        {"op": "sum", "field": "seconda_dose", "as": "cumulative_count"}
+      ]
+    },
+    {"filter": "datum.nome_area!=='NA'"},
+    {"filter": "datum.nome_area!==''"},
+    {
+      "calculate": "datum.area == 'LOM' ? 'NordOvest' : datum.area == 'LIG' ? 'NordOvest' : datum.area == 'PIE' ? 'NordOvest' : datum.area == 'VDA' ? 'NordOvest' : datum.area == 'EMR' ? 'NordEst' : datum.area == 'FVG' ? 'NordEst' : datum.area == 'PAT' ? 'NordEst' : datum.area == 'PAB' ? 'NordEst' : datum.area == 'VEN' ? 'NordEst' : datum.area == 'LAZ' ? 'Centro' : datum.area == 'MAR' ? 'Centro' : datum.area == 'TOS' ? 'Centro' : datum.area == 'UMB' ? 'Centro' : datum.area == 'ABR' ? 'Sud' :  datum.area == 'BAS' ? 'Sud' : datum.area == 'CAL' ? 'Sud' : datum.area == 'CAM' ? 'Sud' : datum.area == 'MOL' ? 'Sud' :  datum.area == 'PUG' ? 'Sud' :  datum.area == 'SAR' ? 'Isole' :  datum.area == 'SIC' ? 'Isole' :''",
+      "as": "Areas"
+    },
+    {
+      "filter": {
+        "timeUnit": "year",
+        "field": "data_somministrazione",
+        "gt": 2020
+      }
+    }
+  ],
+  "spacing": 30,
+  "vconcat": [
+    {
+      "width": 800,
+      "height": 300,
+      "title": {
+        "text": "People in intensive care vs Total people vaccinated with the second dose",
+        "description": "This is a line chart that represents the trend of the people in intensive care corresponding to the increase in the administration of the second dose. Once you have selected an area, multiple lines are shown that correspond to the different regions of that area. Approaching the pointer of the mouse the line thickness will increase to facilitate the activation of the tooltip with the main information.",
+        "fontSize": 28,
+        "color": "#4851C2",
+        "font": "Marker Felt",
+        "fontWeight": "bolder",
+        "subtitle": "through time for regions",
+        "subtitleColor": "#4851C2",
+        "subtitleFont": "Marker Felt",
+        "subtitleFontSize": 22,
+        "subtitleFontWeight": "bold",
+        "anchor": "middle",
+        "dy": 25,
+        "offset": 50,
+        "subtitlePadding": 10
+      },
+      "encoding": {
+        "x": {
+          "field": "cumulative_count",
+          "title": "Second Dose (cumulative)",
+          "type": "quantitative"
+        },
+        "y": {
+          "title": "Intensive care",
+          "field": "terapia_intensiva",
+          "type": "quantitative"
+        },
+        "color": {
+          "field": "Areas",
+          "title": "Select an Area",
+          "scale": {
+            "range": ["#61CB75", "#53BCC9", "#4C7FC4", "#9B5FCD", "#CF6BC9"]
+          }
+        },
+        "size": {"condition": {"param": "hover", "value": 7}, "value": 2}
+      },
+      "layer": [
+        {
+          "params": [
+            {
+              "name": "Val",
+              "value": [{"Areas": "Isole"}],
+              "select": {"type": "point", "fields": ["Areas"]},
+              "bind": "legend"
+            },
+            {
+              "name": "hover",
+              "value": [{"nome_area": ""}],
+              "select": {
+                "type": "point",
+                "fields": ["nome_area"],
+                "on": "mouseover",
+                "nearest": true
+              }
+            }
+          ],
+          "mark": {"type": "circle"}
+        },
+        {
+          "mark": {"type": "line"},
+          "encoding": {
+            "tooltip": [
+              {"field": "nome_area", "type": "nominal", "title": "Region"},
+              {
+                "field": "data_somministrazione",
+                "type": "temporal",
+                "title": "Date"
+              },
+              {
+                "field": "terapia_intensiva",
+                "type": "quantitative",
+                "title": "Intensive care"
+              }
+            ],
+            "color": {
+              "field": "nome_area",
+              "condition": [
+                {"test": "datum.area == 'ABR'", "value": "#6C2761"},
+                {"test": "datum.area == 'BAS'", "value": "#8C317E"},
+                {"test": "datum.area == 'VDA'", "value": "#C5C1EB"},
+                {"test": "datum.area == 'PIE'", "value": "#9992DB"},
+                {"test": "datum.area == 'EMR'", "value": "#16193F"},
+                {"test": "datum.area == 'SAR'", "value": "#3A9CA4"},
+                {"test": "datum.area == 'CAM'", "value": "#C44EB2"},
+                {"test": "datum.area == 'UMB'", "value": "#A0E0B3"},
+                {"test": "datum.area == 'LAZ'", "value": " #338E4E"},
+                {"test": "datum.area == 'LOM'", "value": "#6D64C9"},
+                {"test": "datum.area == 'FVG'", "value": "#232865"},
+                {"test": "datum.area == 'SIC'", "value": "#87D1D7"},
+                {"test": "datum.area == 'PAT'", "value": "#6EBFCF"},
+                {"test": "datum.area == 'TOS'", "value": "#71D08D"},
+                {"test": "datum.area == 'PAB'", "value": "#2F368C"},
+                {"test": "datum.area == 'VEN'", "value": "#5860CA"},
+                {"test": "datum.area == 'PUG'", "value": "#DB8DCE"},
+                {"test": "datum.area == 'MOL'", "value": "#CF6DC0"},
+                {"test": "datum.area == 'CAL'", "value": "#AD3B9B"},
+                {"test": "datum.area == 'LIG'", "value": "#483EAF"},
+                {"test": "datum.area == 'MAR'", "value": "#43BE68"},
+                {"test": "datum.Areas == 'Sud'", "value": "#CF6BC9"},
+                {"test": "datum.Areas == 'NordOvest'", "value": "#9B5FCD"},
+                {"test": "datum.Areas == 'NordEst'", "value": "#4C7FC4"},
+                {"test": "datum.Areas == 'Isole'", "value": "#53BCC9"},
+                {"test": "datum.Areas == 'Centro'", "value": "#61CB75"}
+              ],
+              "legend": {
+                "values": ["Centro", "Isole", "NordEst", "NordOvest", "Sud"],
+                "offset": -100,
+                "padding": 70
+              }
+            }
+          }
+        }
+      ],
+      "transform": [{"filter": {"param": "Val"}}]
+    },
+    {
+      "width": 800,
+      "height": 300,
+      "description": "The second graph is a multi series line chart that illustrates the trend of the total vaccine doses administrated each week divided by population from December 25th, 2020 to September 16th, 2021. The colored line corresponds to the selected area. Moving the pointer of the mouse towards the graph, a vertical line appears that indicates the date.",
+      "title": {
+        "text": "Vaccine doses administrated by region",
+        "fontSize": 30,
+        "anchor": "middle",
+        "color": "#4851C2",
+        "font": "Marker Felt",
+        "baseline": "bottom",
+        "fontWeight": "bolder",
+        "subtitle": "normalized for the population from December 2020 to September 2021 by week",
+        "subtitleColor": "#4851C2",
+        "subtitleFont": "Marker Felt",
+        "subtitleFontSize": 22,
+        "subtitleFontWeight": "bold"
+      },
+      "transform": [
+        {"calculate": "datum.totale/datum.pop_regione", "as": "total2"},
+        {"timeUnit": "week", "field": "data_somministrazione", "as": "week"}
+      ],
+      "encoding": {
+        "x": {
+          "field": "week",
+          "type": "temporal",
+          "title": "Administration Date",
+          "axis": {
+            "tickCount": 8,
+            "labelAlign": "left",
+            "labelExpr": "[timeFormat(datum.value, '%b')]",
+            "gridDash": {"value": [2, 2]}
+          }
+        },
+        "y": {
+          "aggregate": "sum",
+          "field": "total2",
+          "type": "quantitative",
+          "title": "Vaccine doses administered divided by population"
+        },
+        "color": {
+          "condition": {
+            "param": "Val",
+            "field": "Areas",
+            "type": "nominal",
+            "title": "Select an Area",
+            "scale": {
+              "domain": ["Centro", "Isole", "NordEst", "NordOvest", "Sud"],
+              "range": ["#61CB75", "#53BCC9", "#4C7FC4", "#9B5FCD", "#CF6BC9"]
+            }
+          },
+          "value": "grey"
+        },
+        "opacity": {"condition": {"param": "Val", "value": 1}, "value": 0.2}
+      },
+      "layer": [
+        {"mark": {"type": "line", "size": 3}},
+        {
+          "params": [
+            {
+              "name": "index",
+              "select": {
+                "type": "point",
+                "encodings": ["x"],
+                "on": "mousemove",
+                "nearest": true
+              }
+            }
+          ],
+          "mark": {"type": "point"},
+          "encoding": {
+            "y": {"field": "total2", "type": "quantitative"},
+            "opacity": {"value": 0}
+          }
+        },
+        {
+          "transform": [
+            {"filter": {"and": ["index.week", {"param": "index"}]}}
+          ],
+          "mark": {"type": "rule", "stroke": "black", "y2": 0.5}
+        },
+        {
+          "transform": [
+            {"filter": {"and": ["index.week", {"param": "index"}]}}
+          ],
+          "mark": {
+            "type": "text",
+            "color": "black",
+            "font": "Didot",
+            "fontSize": 10,
+            "fill": "black"
+          },
+          "encoding": {
+            "y": {"value": 12},
+            "text": {
+              "field": "data_somministrazione",
+              "type": "temporal",
+              "timeUnit": "week",
+              "formatType": "time",
+              "format": "%b %d"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "mark": {
+        "type": "text",
+        "align": "left",
+        "dx": -50,
+        "fontSize": 13,
+        "font": "Didot"
+      },
+      "encoding": {
+        "text": {
+          "value": [
+            "Source data: https://github.com/italia/covid19-opendata-vaccini",
+            "Group 2: Belloni, Ghidini, Ronci, Serraino"
+          ]
+        }
+      }
+    }
+  ],
+  "config": {
+    "axis": {
+      "labelFont": "Didot",
+      "labelColor": "gray",
+      "labelFontSize": 10,
+      "titleFont": "Didot",
+      "titleFontSize": 15,
+      "titlePadding": 10,
+      "labelAngle": 23
+    },
+    "legend": {
+      "labelFont": "Didot",
+      "labelFontSize": 14,
+      "titleFont": "Didot",
+      "titleFontSize": 20,
+      "titleFontWeight": "bold",
+      "titleAnchor": "middle",
+      "orient": "none",
+      "direction": "horizontal",
+      "legendY": -240,
+      "legendX": 150
+    },
+    "background": "whitesmoke",
+    "text": {"align": "right", "dx": -7, "dy": -5}
+  }
+};
+    vegaEmbed("#vis", spec, {mode: "vega-lite"}).then(console.log).catch(console.warn);
+  </script>
+</body>
+</html>
