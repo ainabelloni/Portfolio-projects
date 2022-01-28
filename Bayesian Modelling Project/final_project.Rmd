@@ -1,0 +1,1540 @@
+---
+title: "Risk factors for lung cancer per country in 2015"
+author: "Aina Belloni & Francesca Ghidini"
+geometry: "left=1 cm,right=1 cm,top=1cm,bottom=1.3 cm"
+header_includes:
+    - \usepackage{amsmath}
+output:
+  bookdown::pdf_document2:
+    fig_crop: no
+    keep_tex: yes
+    latex_engine: xelatex
+    number_sections: yes
+    toc: yes
+    toc_depth: 5
+fontsize: 9pt
+editor_options:
+      chunk_output_type: inline
+bibliography: references.bib
+nocite: '@*'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.align = "center", message = FALSE, fig.height = 2.5, warning=FALSE, message = FALSE)
+```
+
+```{r, include=FALSE}
+rm(list=ls())
+library(knitr)
+library(ggpubr)
+library(xtable)
+library(gt)
+library(tidyverse)
+library(dplyr)
+library(lattice)
+library(rstanarm)
+library(corrplot)
+library(R2jags)
+library(effects)
+library("ff")
+library(car)
+library(faraway)
+library(ggplot2)
+library(gghalfnorm)
+library(stargazer)
+library(leaps)
+library(boot)
+library(hrbrthemes)
+library(viridis)
+library(gridExtra)
+library(GGally)
+library(mice)
+library(coda)
+#library(bookdown)
+library(hrbrthemes)
+library(kableExtra)
+library(mvtnorm)
+library(mcmcplots)
+library(fda)
+library(bayesplot)
+```
+
+```{r, echo=FALSE}
+data_cancer <- read.csv2("data_cancer.csv",header=T,dec=".")
+data_cancer$Region=as.factor(data_cancer$Region)
+data_cancer$Income=as.factor(data_cancer$Income)
+```
+
+```{r, echo=FALSE}
+data = data_cancer[,-c(4,5)]
+```
+
+\newpage
+
+# Dataset
+
+The dataset comes from the [https://eur03.safelinks.protection.outlook.com/?url=http%3A%2F%2Fwww.who.int%2F&amp;data=04%7C01%7Caina.belloni01%40icatt.it%7C76e81f76735e4fcd560708d96e59759f%7C080496d6a52847a18c2af8860f43342f%7C0%7C0%7C637662152794031756%7CUnknown%7CTWFpbGZsb3d8eyJWIjoiMC4wLjAwMDAiLCJQIjoiV2luMzIiLCJBTiI6Ik1haWwiLCJXVCI6Mn0%3D%7C1000&amp;sdata=UV%2FU3E3zB6tKy1rrKGPQU7vpheiW2KXN4Gqg4Myns6Y%3D&amp;reserved=0](https://eur03.safelinks.protection.outlook.com/?url=http%3A%2F%2Fwww.who.int%2F&amp;data=04%7C01%7Caina.belloni01%40icatt.it%7C76e81f76735e4fcd560708d96e59759f%7C080496d6a52847a18c2af8860f43342f%7C0%7C0%7C637662152794031756%7CUnknown%7CTWFpbGZsb3d8eyJWIjoiMC4wLjAwMDAiLCJQIjoiV2luMzIiLCJBTiI6Ik1haWwiLCJXVCI6Mn0%3D%7C1000&amp;sdata=UV%2FU3E3zB6tKy1rrKGPQU7vpheiW2KXN4Gqg4Myns6Y%3D&amp;reserved=0)
+
+The data contains general information and some factors of health conditions for 183 countries, in particular there are 17 variables, which are:
+
++ **Country**
+
++ **Region**: 6 levels factor: Africa, Americas, Eastern Mediterranean, Europe, South-East Asia, Western Pacific
+
++ **Death_ratio**: Ratio between the deaths caused by trachea, bronchus and lung cancers and the population in 2015
+
++ **Males**: Percent of males citizens
+
++ **Income**: World Bank income group. 4 levels factor that can be: High-income, Low-income, Lower-middle-income and Upper-middle-income depending on the value of the gross national income (GNI) per capita valued annually in US dollars using a three-year average exchange rate. The cutoff points between each of the groups are fixed in real terms: they are adjusted each year in line with price inflation. The classification is published on [https://eur03.safelinks.protection.outlook.com/?url=http%3A%2F%2Fwww.data.worldbank.org%2F&amp;data=04%7C01%7Caina.belloni01%40icatt.it%7C76e81f76735e4fcd560708d96e59759f%7C080496d6a52847a18c2af8860f43342f%7C0%7C0%7C637662152794031756%7CUnknown%7CTWFpbGZsb3d8eyJWIjoiMC4wLjAwMDAiLCJQIjoiV2luMzIiLCJBTiI6Ik1haWwiLCJXVCI6Mn0%3D%7C1000&amp;sdata=Ya%2FbiYonYlaErDCHGPpnXR1YmXUf0NJJuZKX0ufVZxY%3D&amp;reserved=0](https://eur03.safelinks.protection.outlook.com/?url=http%3A%2F%2Fwww.data.worldbank.org%2F&amp;data=04%7C01%7Caina.belloni01%40icatt.it%7C76e81f76735e4fcd560708d96e59759f%7C080496d6a52847a18c2af8860f43342f%7C0%7C0%7C637662152794031756%7CUnknown%7CTWFpbGZsb3d8eyJWIjoiMC4wLjAwMDAiLCJQIjoiV2luMzIiLCJBTiI6Ik1haWwiLCJXVCI6Mn0%3D%7C1000&amp;sdata=Ya%2FbiYonYlaErDCHGPpnXR1YmXUf0NJJuZKX0ufVZxY%3D&amp;reserved=0).
+
++ **Government_expenditure**: 2015 health expenditure per capita in US$
+
++ **Domestic_expenditure**: 2015 domestic private health expenditure per capita in PPP int$
+
++ **Sanitations**: Percentage of population using at least basic sanitation services, that is, improved sanitation facilities that are not shared with other households.
+
++ **Tobacco**: Estimate of current cigarette smoking prevalence (%) in 2015 (age-standardized rate ^["Age-standardized rates account for the differences in the age structure of the populations being compared. In the calculation of the age-standardized rate, either one population is mathematically adjusted to have the same age structure as the other.  In this way, the two groups are given the same age distribution structure so that a more representative picture of the characteristic in question is provided."  [(https://eur03.safelinks.protection.outlook.com/?url=http%3A%2F%2Fwww.statcan.gc%2F&amp;data=04%7C01%7Caina.belloni01%40icatt.it%7C76e81f76735e4fcd560708d96e59759f%7C080496d6a52847a18c2af8860f43342f%7C0%7C0%7C637662152794041749%7CUnknown%7CTWFpbGZsb3d8eyJWIjoiMC4wLjAwMDAiLCJQIjoiV2luMzIiLCJBTiI6Ik1haWwiLCJXVCI6Mn0%3D%7C1000&amp;sdata=IsJTb%2FPiLza1uqNoWQV8Si9FD%2BbPHBiS%2FAcWwqxWKs0%3D&amp;reserved=0)](https://eur03.safelinks.protection.outlook.com/?url=https%3A%2F%2Fwww.statcan.gc.ca%2Feng%2Fdai%2Fbtd%2Fasr&amp;data=04%7C01%7Caina.belloni01%40icatt.it%7C76e81f76735e4fcd560708d96e59759f%7C080496d6a52847a18c2af8860f43342f%7C0%7C0%7C637662152794041749%7CUnknown%7CTWFpbGZsb3d8eyJWIjoiMC4wLjAwMDAiLCJQIjoiV2luMzIiLCJBTiI6Ik1haWwiLCJXVCI6Mn0%3D%7C1000&amp;sdata=yGXduBgIi%2Fek9w49MdLtAFNoCuRaBkHYnCWS7SPugeY%3D&amp;reserved=0)]). It is the percentage of the population aged 15 years and over who currently use any tobacco product (smoked and/or smokeless tobacco) on a daily or non-daily basis. This is an estimate obtained with a statistical model based on a Bayesian negative binomial meta-regression. Further information on the method used are available in a peer-reviewed article in The Lancet, volume 385, No. 9972, p966–976 (2015). This variable presents Not Available data.
+
++ **Age_Mean**: Population median age (years)
+
++ **Alcohol**: Alcohol, recorded per capita (15+ years) consumption (in litres of pure alcohol)
+
++ **BMI**: Mean body mass index (BMI) in kg/m2 of defined population (age-standardized estimate)
+
++ **Pollution**: Annual mean concentration of particulate matter of less than 2.5 microns of diameter (PM2.5) [ug/m3] in urban areas
+
++ **UV**: Average daily ambient ultraviolet radiation (UVR) level (in J/m2)
+
++ **Water**: Population using at least basic drinking-water services (%) in 2015, that is, the population that drinks water from an improved source, provided collection time is not more than 30 minutes for a round trip.
+
++ **SCI**: Coverage of essential health services (defined as the average coverage of essential services based on tracer interventions that include reproductive, maternal, newborn and child health, infectious diseases, non-communicable diseases and service capacity and access, among the general and the most disadvantaged population). The indicator is an index reported on a unit-less scale of 0 to 100
+
+## Goals
+
+The main goal of this analysis is to explore possible lung cancer risk factors using our prior knowledge. To do that we rely on 2015 data that summarize peculiar features of a country such as sanitary system, wealth, demographic aspects and people habits.
+
+Hence, the dependent variable in this case is the ratio between the number of deaths caused by lung cancer deaths and the total population, for each country.
+
+## Exploratory analysis
+
+The variable of interest is represented in Figure \@ref(fig:rwesponse). As it is possible to observe from Figure \@ref(fig:rwesponse), the response variable has really small positive values, between 0 and 1, and its density distribution is bimodal and not symmetric.
+
+
+```{r rwesponse, fig.cap="Density of the response variable Death ratio", echo=FALSE, fig.height= 2.5, fig.width=2.7}
+ggplot(data_cancer, aes(x=Death_ratio)) +
+ geom_density(size=1, colour="dodgerblue4", aes(y=..scaled..)) + labs(x="Death Ratio", y = "Density")
+```
+
+## Categorical variables
+
+By doing more in-depth analysis we have noticed that there is a substantial difference between the mortality rate between the developing countries and the advanced countries. In fact, the bimodality of the response could be caused by the richest countries, for example those in Europe and those with a high income level, as we can notice in Figure \@ref(fig:regions). One probable reason could be the fact that the healthcare systems of poor regions is really underdeveloped compared to the ones of Europe and therefore the data could be less reliable and accurate.
+
+```{r regions, fig.cap="On the left: Density comparison of the response variables excluding different levels of the variable Income. On the right: Density comparison of the response variables excluding different levels of the variable Region", echo=FALSE, fig.height=3.3}
+layout(matrix(1:2, nrow = 1))
+plot(0,main="",xlim=c(-2e-04,0.001), ylim=c(0,10000))
+lines(density(data_cancer$Death_ratio),col= "black", lwd = 1.5, lty = 2)
+for (a in 1:4){
+  levels <- c("Low-income","Lower-middle-income","Upper-middle-income","High-income")
+  d <- subset(data_cancer, select="Death_ratio" , subset=data_cancer[,"Income"]!=levels[a])
+  lines(density(d[,1]),col=a+1)
+}
+levels <- c("None", levels)
+legend("topright",levels,fil=c(1:5), col = c(1:5), title = "Excluding the level:", cex = 0.4)
+
+plot(0,main="",xlim=c(-2e-04,0.001), ylim=c(0,10000))
+lines(density(data_cancer$Death_ratio),col= "black", lwd = 1.5, lty = 2)
+for (a in 1:6){
+  levels <- c("Africa","Western Pacific","Europe","South-East Asia","Eastern Mediterranean","Americas")
+  d <- subset(data_cancer, select="Death_ratio" , subset=data_cancer[,"Region"]!=levels[a])
+  lines(density(d[,1]),col=a+1)
+}
+
+levels <- c("None", levels)
+legend("topright",levels,fill=c(1:7), col = c(1:7), title = "Excluding the level:", cex = 0.4)
+```
+
+Since we have discovered that the possible cause of bimodality is given by the Region and the level of Income of each country we decided to explore in more depth the differences between these different groups.
+
+First of all, we have calculated mean and variance for each level of `Income` and for each level of `Regions` and the total values as reported in the Table \@ref(tab:groupReg).
+
+```{r, echo=FALSE}
+groups_income <- vector()
+groups_income <- ifelse(data_cancer$Income=="Low-income",1,0)
+groups_income <- ifelse(data_cancer$Income=="Lower-middle-income",2,groups_income)
+groups_income <- ifelse(data_cancer$Income=="Upper-middle-income",3,groups_income)
+groups_income <- ifelse(data_cancer$Income=="High-income",4,groups_income)
+
+Mean <- tapply(data_cancer$Death_ratio, groups_income, mean)
+Var <- tapply(data_cancer$Death_ratio, groups_income, var)
+Num <- tapply(data_cancer$Death_ratio, groups_income, length)
+
+data_groups = data.frame(y = data_cancer$Death_ratio, group = factor(groups_income))
+dt1 <- data.frame("Level" =c("Low-Income","Lower-middle-income", "Upper-middle-income","High-income", "Total"), "Mean"= c(Mean, mean(data_cancer$Death_ratio)), "Var" = c(Var, var(data_cancer$Death_ratio)), "N"=c(Num, length(data_cancer$Death_ratio)))
+rownames(dt1) <- NULL
+```
+
+
+```{r,echo=FALSE}
+groups_reg <- vector()
+groups_reg <- ifelse(data_cancer$Region=="Africa",1,0)
+groups_reg <- ifelse(data_cancer$Region=="Europe",2,groups_reg)
+groups_reg <- ifelse(data_cancer$Region=="Americas",3,groups_reg)
+groups_reg <- ifelse(data_cancer$Region=="Eastern Mediterranean",4,groups_reg)
+groups_reg <- ifelse(data_cancer$Region=="Western Pacific",5,groups_reg)
+groups_reg <- ifelse(data_cancer$Region=="South-East Asia",6,groups_reg)
+
+Mean <- tapply(data_cancer$Death_ratio, groups_reg, mean)
+Var <- tapply(data_cancer$Death_ratio, groups_reg, var)
+Num <- tapply(data_cancer$Death_ratio, groups_reg, length)
+dt <- data_frame("Level" =c("Africa","Europe", "Americas","Eastern Mediterranean","Western Pacific", "South-East Asia", "Total"), "Mean"= c(Mean, mean(data_cancer$Death_ratio)), "Var" = c(Var, var(data_cancer$Death_ratio)), "N"=c(Num, length(data_cancer$Death_ratio)))
+```
+
+
+```{r groupReg, echo=FALSE}
+knitr::kable(
+  list(dt, dt1),
+  caption = 'Summary Region and Income',
+  booktabs = TRUE, valign = 't', digits = 12
+) %>% kable_styling(latex_options = c("striped", "hold_position")
+  ,position = "center")
+
+```
+
+
+
+```{r boxplots, echo=FALSE, fig.height=3.5, fig.cap= "Boxplots of death ratio for the different levels of the categoriacl variables. On the left: Income. On the right: Regions. The red cross is the mean value for each level"}
+g1 <- data_cancer %>%
+  mutate(class = fct_reorder(Income, Death_ratio, .fun='median')) %>%
+  ggplot(aes(x= reorder(Income, Death_ratio), y=Death_ratio, fill = Income)) +
+    geom_boxplot(outlier.shape = 1) +
+    scale_fill_brewer(palette="Blues") +
+  stat_summary(fun.y=mean, geom="point", shape=3, size=2, color="red", fill="red") +
+    theme(
+      legend.position="none",
+      plot.title = element_text(size=11),
+      axis.text.x=element_text(angle=-90, vjust=0.4,hjust=1, size = 5)
+    ) +
+    xlab("Income") +
+    ylab("Death_ratio")
+g2 <- data_cancer %>%
+    mutate(class = fct_reorder(Region, Death_ratio, .fun='median')) %>%
+  ggplot(aes(x=reorder(Region, Death_ratio), y=Death_ratio, fill = Region)) +
+    geom_boxplot(outlier.shape = 1) +
+  theme(
+      legend.position="none",
+      plot.title = element_text(size=11),
+      axis.text.x=element_text(angle=-90, vjust=0.4,hjust=1, size = 5)
+    ) +
+  stat_summary(fun.y=mean, geom="point", shape=3, size=1, color="red", fill="red") +
+    xlab("Region") +
+    ylab("Death_ratio") +
+  scale_fill_brewer(palette="Blues")
+grid.arrange(g1, g2, ncol=2)
+```
+
+
+```{r, echo=FALSE}
+means <- tapply(data_groups$y, data_groups$group, mean)
+fit = lm(y ~ group, data_groups)
+data_groups1 = data.frame(y = data_cancer$Death_ratio, group = factor(groups_reg))
+means1 <- tapply(data_groups1$y, data_groups1$group, mean)
+fit1 = lm(y ~ group, data_groups1)
+```
+
+
+
+Figure 3 illustrates that between the various groups we get quite distinct values. A substantial difference is noted in particular with respect to the Africa and Low-income groups that are really different compared to the others level of the same factor. However, to be sure that our insight is correct we decided to test it with `Anova` using the F-test. The Anova consists in analyzing the variance; in particular, what we are interested in is the variation within and between groups that we call respectively:
+
+* Sum of Squares Within : $SSW=\sum(y - \hat{y})^2$ which is the variation among countries within each group
+* Sum of Squares Between : $SSB=\sum(\hat{y}-\bar{y})^2$ which is the variation between the groups
+where $\hat{y}$ is the mean of $y$’s group and $\bar{y}$ is the general mean of all $y$.
+
+Using those measures we obtain the F-statistic as $F=\frac{SSW/df_W}{SSB/df_B}$ where $df_W=N-k$ and $df_B=k-1$ where N is the number of observations and k is the number of groups. In particular the numerator of F is the Mean Square within $MSW=SSW/df_W$ while the denominator is the Mean Square between $MSB=SSB/df_B$. We used this statistic in order to test if the difference in mean between the different groups is significant or not looking at the corresponding pvalue.
+
+```{r, echo=FALSE}
+aaa <- anova(fit)["Residuals", "Mean Sq"] # Mean Square Within groups
+bbb <-anova(fit)["group", "Mean Sq"] # Mean Square Between groups
+ccc <- anova(fit)[1,"F value"]
+ddd <- anova(fit)[1,"Pr(>F)"]
+anova_result <- data_frame("MSW" = aaa, "MSB" = bbb, "F statistic"= ccc, "P-value" = ddd)
+```
+
+
+```{r,echo=FALSE}
+aaa1 <- anova(fit1)["Residuals", "Mean Sq"] # Mean Square Within groups
+bbb1 <-anova(fit1)["group", "Mean Sq"] # Mean Square Between groups
+ccc1 <- anova(fit1)[1,"F value"]
+ddd1 <- anova(fit1)[1,"Pr(>F)"]
+anova_result1 <- data_frame("MSW" = aaa1, "MSB" = bbb1, "F statistic"= ccc1, "P-value" = ddd1)
+```
+
+
+```{r anova,echo=FALSE}
+knitr::kable(
+  list(anova_result, anova_result1),
+  caption = 'Anova Summary of Income (on the left) and of Regions (on the right)',
+  booktabs = TRUE,  digits = 40, align = "c"
+) %>% kable_styling(latex_options = c("striped", "hold_position")
+  ,position = "center", font_size = 9)
+```
+
+
+
+
+From the result in Table \@ref(tab:anova) we can conclude that the number of deaths caused by lung cancer, for different groups of `Region` or `Income`,  are significantly different in mean.
+
+## Issues and quality of data
+
+The data are valid and reliable because they came from an important institutional source that is World Health Organization and they are suitable to address our aim and the size of the dataset is enough for it. The problem is that some countries didn't provide all the information needed and some values seem to be not $100\%$ accurate, therefore there might be some measurement problems. The problems we faced during our analysis are mainly related to the fact that the values of the variable of interest are very small, less than $0.0001$, and the variable presents a bimodal distribution due to the richest countries, those with an high level of income.
+
+# Missing values
+
+Our dataset contains some `NA` values in the variable `Tobacco`, for that reason we decided to estimate those values using a subset of the entire dataset in order to use a multivariate normal model for the imputation of the missing data, using Gibbs Sampler. The goal is to sample the missing values of each data point independently.
+
+```{r, echo=FALSE}
+# Number of NA in the variable
+n_na <- sum(is.na(data$Tobacco))
+```
+
+From now on the variables `Government_expenditure`, `Domestic_expenditure`, `Age_mean` and `Pollution` will be replaced by their logarithm because we want to assume that these variables are normally distributed.
+The graph in Figure \@ref(fig:gg) represents the variables that will form the dataset subset `Y`, whose distribution, can be assimilated to a multivariate normal.
+
+```{r,fig.height=5,message=F,warning=F, echo=FALSE}
+quant <- c(
+  "Death_ratio",
+  "Males",
+  "Government_expenditure",
+  "Domestic_expenditure",
+  "Sanitations",
+  "Tobacco",
+  "Age_Mean",
+  "Alcohol",
+  "BMI",
+  "Pollution",
+  "UV",
+  "Water",
+  "SCI"
+)
+
+data_log <- log(data[, quant])
+```
+
+
+```{r gg, echo=FALSE, fig.cap="Representation of the quantitative variables that can be assumed to have a normal distribution. In the lower part of the graph there are the scatterplots of the variables considered in pairs. On the diagonal there are the densities of the variables. On the upper part there are the values of the correlation among the variables", warning=FALSE, fig.height=3.5}
+quant <- c(
+  "Death_ratio",
+  "Males",
+  "Government_expenditure",
+  "Domestic_expenditure",
+  "Sanitations",
+  "Tobacco",
+  "Age_Mean",
+  "Alcohol",
+  "BMI",
+  "Pollution",
+  "UV",
+  "Water",
+  "SCI"
+)
+
+Y <-
+  data.frame(
+    Tobacco = data$Tobacco,
+    Government_expenditure = data_log$Government_expenditure,
+    Domestic_expenditure = data_log$Domestic_expenditure,
+    Age_mean = data_log$Age_Mean,
+    Pollution = data_log$Pollution,
+    BMI = data$BMI,
+    UV = data$UV,
+    SCI = data$SCI
+  )
+
+Y %>% ggpairs(.,
+  lower = list(continuous = wrap("points", alpha = 0.3, size=0.1)),
+  upper = list(continuous = wrap(ggally_cor, displayGrid = FALSE, digits = 3, stars = FALSE, title = " ", size = 3))) + theme(
+    axis.text = element_text(size = 3.5),
+    axis.title = element_text(size = 2),
+    axis.ticks=element_blank()
+)
+```
+
+Consider the dataset `Y` (made up with the variables normal distributed of our dataset) with missing values and a corresponding matrix `O` which contains the value 1 if the corresponding element in `Y` exists or 0 elsewhere. A Gibbs sampler is then implemented where the matrix `Y` is not a full matrix.
+
+Assume that `Y` is formed by two parts $Y=(Y_{obs},Y_{miss})$ and consider the following Bayesian model:
+
+* $Y_1,\dots,Y_n|\theta,\Sigma\sim{N_p}(\theta,\Sigma)$
+* $\theta\sim{N_p}(\mu_0,\Lambda_0)$
+* $\Sigma\sim{Inv-Wishart}(\nu_0,\S_0)$
+
+Whose full conditionals distributions are known, then we can use Gibbs Sampler in order to estimate the posterior distribution on $Y_miss$. First we sample values $\theta^{(s)}$ and $\Sigma^{(s)}$ and then we can sample from $Y_{miss}^{(s)}\sim{p}(Y_{miss}|Y_{obs},\theta^{(s)},\Sigma^{(s)})$
+In order to do that consider as variable $a$ the index of the observed values for the i-th data, and as variable $b$ the index of the missing values for the i-th data.
+
+Our analysis focuses on the study of the joint posterior distribution of the parameters and the unobserved quantities. So, we proceed calculating $y_{[b]} \mid y_{[a]}$ , $\theta$, $\Sigma$ $\sim{N(\theta_{b \mid a},\Sigma_{b\mid a})}$ as follows:
+
+$$\theta_{b \mid a}=\theta_b+\Sigma_{[b,a]}+(\Sigma_{[a,a]})^{-1}(y_{[a]}-\theta_{[a]})$$
+$$\Sigma_{b \mid a}=\Sigma_{[b,b]}-\Sigma_{[b,a]}(\Sigma_{[a,a]})^{-1}\Sigma_{[a,b]}$$
+The initial value used for $\theta$ is the mean of the data and as initial value of $\Sigma$ is used the covariance matrix of the data.
+
+```{r, echo=FALSE}
+n <- nrow(Y)
+p <- ncol(Y)
+O <- 1 * (!is.na(Y))
+
+in_theta <- apply(Y, 2, mean, na.rm = T)
+in_Sigma <- cov(Y, use = "complete.obs")
+
+in_Y <- Y
+for (i in 1:n) {
+  # for all observation
+  if (all(O[i,] == 1)) {
+    # if there are not missing value go next
+    next
+  } # otherwise
+  oi = O[i,]
+  a = (oi == 1) # index of the observed values for the i-th data
+  b = (oi == 0) # index of the missing values for the i-th data
+ 
+  iSa = solve(in_Sigma[a, a]) # \Sigma_{[a, a]}ˆ{-1}
+  beta.j = in_Sigma[b, a] %*% iSa # \Sigma_{[b, a]}(\Sigma_{[a, a]})ˆ{-1}
+  # Calculate Sigma[b|a]
+  Sigma.j = in_Sigma[b, b] - beta.j %*% in_Sigma[a, b]
+  # Calculate theta.j
+  yi = in_Y[i,]
+  theta.j = in_theta[b] + beta.j %*% t(yi[a] - in_theta[a])
+  in_Y[i, b] = as.vector(rmvnorm(1, theta.j, Sigma.j)) # Now sample
+}
+```
+
+Using Gibbs sampling, after sampling the values of $\theta^{(s)}$ and of $\Sigma^{(s)}$, it is possible to sample from the distribution of the unobserved quantities conditionally on the parameters and the observed quantities. Then, we create a function to perform Bayesian analysis and  we use as input for the missing data the values calculated above. The following steps are: 
+1) Calculate the full conditional of $\theta \mid \Sigma$, computing first $\mu_n$ and $\Lambda_n$ using the imputed full dataset  
+2) Calculate the full conditional of $\Sigma \mid \theta$ using the imputed dataset, computing first the value of $\nu_n$ and of $S_n$, first centering the data according to the current value of $\theta$, then computing the residual sum of square 
+3) Imputed the data again and update the values 
+
+```{r}
+## The Gibbs function
+Gibbs_multi_norm_miss <- function(G,burnin, thin, in_theta,in_Sigma,in_Y, mu_0,
+                                  Lam_0,nu_0,S_0,Y,O) {
+  p <- ncol(Y); n <- nrow(Y)
+  iterations <- burnin + thin * G ### Compute the iterations
+  g <- 1
+  theta <- matrix(nrow = G, ncol = p); Sigma <- array(dim = c(G, p, p)) ## Define the output object
+  Y_imputed <- matrix(nrow = G, ncol = sum(O == 0)) ## The imputed data
+  ## Quantity of interest
+  Lam_0m1 <- solve(Lam_0)
+  current_theta <- in_theta ## the current state of the chain
+  current_Sigma <- in_Sigma
+  current_Y <- in_Y ## matrix without NA (i.e. full)
+  for (iter in 1:iterations) {
+    #### Step 1
+    ybar <- apply(current_Y, 2, mean); Sigm1 <- solve(current_Sigma)
+    Lam_n <- solve(Lam_0m1 + n * Sigm1); mu_n <- Lam_n %*% (Lam_0m1 %*% mu_0 + n * Sigm1 %*% ybar)
+    current_theta <- as.vector(rmvnorm(1, mean = mu_n, sig = Lam_n))
+    ### Step 2
+    nu_n <- nu_0 + n; Z <- scale(current_Y, center = current_theta, scale = rep(1, p))
+    S_theta <- t(Z) %*% (Z); S_n <- S_0 + S_theta
+    Omega <- rWishart(1, df = nu_n, Sigma = solve(S_n))
+    current_Sigma <- solve(Omega[, , 1])
+    ### Step 3 repeat the process above
+    for (i in 1:n) {
+      if (all(O[i,] == 1)) {
+        next}
+      oi = O[i,]; a = (oi == 1); b = (oi == 0)
+      iSa = solve(current_Sigma[a, a]); beta.j = current_Sigma[b, a] %*% iSa
+      Sigma.j = current_Sigma[b, b] - beta.j %*% current_Sigma[a, b]; yi = current_Y[i,]
+      theta.j = current_theta[b] + beta.j %*% t(yi[a] - current_theta[a])
+      current_Y[i, b] = as.vector(rmvnorm(1, theta.j, Sigma.j))
+      while (current_Y[i, b] <= 0) {
+        current_Y[i, b] = as.vector(rmvnorm(1, theta.j, Sigma.j))}}
+    ## In the output objects I save only the state reached after a burn-in
+    ## Moreover to decrease the correlation between subsequent state we can thin out the chain
+    if ((iter > burnin) & (iter %% thin == 0)) {
+      theta[g, ] = current_theta
+      Sigma[g, , ] = current_Sigma
+      Y_imputed = current_Y[O == 0]
+      g = g + 1}}
+  return(list(theta = theta, Sigma = Sigma, Y_imputed = Y_imputed))}
+mu_0 <- apply(Y, 2, mean, na.rm = T);
+sd_0 <- (mu_0 / 2); Lam_0 <- matrix (.1, p, p); diag(Lam_0) <- 1
+Lam_0 <- Lam_0 * outer(sd_0 , sd_0)
+nu_0 <- p + 2; S_0 <- Lam_0
+#out=Gibbs_multi_norm_miss(5000,1000,5,in_theta = in_theta,in_Sigma = in_Sigma,
+#                      in_Y=in_Y,mu_0=mu_0,Lam_0=Lam_0,nu_0=nu_0,
+#                      S_0=S_0,Y=Y,O=O)
+```
+
+
+```{r, echo=FALSE}
+#save(out,file="out_missing.Rdata")
+```
+
+
+```{r, echo=FALSE, fig.height=6,fig.width=6}
+load(file = "out_missing.Rdata")
+
+#Means and confidence intervals for posterior means
+hat_theta <- colMeans(out$theta)
+## Compute the quantile
+post_theta <-
+  apply(out$theta,
+        MARGIN = 2,
+        quantile,
+        prob = c(0.025, 0.5, 0.975))
+post_theta <- rbind(post_theta, hat_theta)
+##Add the names to the post table
+colnames(post_theta) <- c(colnames(Y))
+rownames(post_theta)[4] <- "mean"
+
+num_col <- ceiling(which(is.na(Y)) / 183)
+num_row <- which(is.na(Y)) - (num_col - 1) * 183
+ind <- cbind(num_row, num_col)
+
+for (i in 1:sum(is.na(Y))) {
+  Y[ind[i, 1], ind[i, 2]] <- out$Y_imputed[i]
+}
+
+```
+
+
+```{r,  echo=FALSE, fig.cap="Scatterplot of the variable Tobacco. Dark blue dots are observed values. Sky blue dots are imputated ones", fig.height=2, fig.width=6}
+t <- ifelse(Y$Tobacco %in% out$Y_imputed, 1, 0)
+ggplot(data_frame(Y$Tobacco), aes(y = Y$Tobacco, x = 1:n)) + geom_point(aes(color = t), size = 1)  + ylab("Tobacco") + xlab("Index") +
+  theme(
+    legend.position = "none"
+  )
+```
+
+```{r, echo=FALSE, fig.cap="Checking convergence Imputated values", message=FALSE, warning=FALSE}
+th <- out$theta
+
+output_th <- as.mcmc(th)
+#mcmcplot(output_th)
+GD <- data.frame(t(geweke.diag(output_th)$z))
+
+# kable(GD, digits = 4, caption  = "Geweke Diagnostic", align = "c",
+#   booktabs = T) %>% kable_styling(latex_options = c("striped", "hold_position"),
+#                     position = "center")
+```
+
+
+```{r, echo=FALSE}
+# Data completed without missing and with variables transformated
+data_full <-
+  data.frame(
+    Country = data$Country,
+    Death_ratio = data$Death_ratio,
+    Y,
+    Sanitation = data$Sanitations,
+    Alcohol = data$Alcohol,
+    Water = data$Water,
+    Income = data$Income,
+    Region = data$Region
+  )
+
+write.table(
+  data_full,
+  "data_complete.csv",
+  sep = ";",
+  row.names = FALSE,
+  dec = ".",
+  na = "",
+  append = F
+)
+
+#data_full <- read.csv2("data_complete.csv",header=T,dec=".",sep=";")
+```
+
+# The model
+
+The model that better describes the response `Death Ratio` is a Bayesian Beta Regression Model defined as follow:
+
+\begin{align}
+\begin{split}
+Y_i \mid \mu_i, \phi &\sim Beta(\mu_i \phi, \phi(1-\mu_i)) \\
+logit(\mu_i) &= \boldsymbol x_i^T \boldsymbol \beta \\
+\phi &\sim Gamma(\alpha, \beta)
+\end{split}
+(\#eq:model)
+\end{align}
+
+with $\boldsymbol \beta = (\beta_1, ..., \beta_p)$ and $\beta_j \sim N(0, \sigma_{\beta_j}^2) \qquad j = 1,...,p$.
+
+The choice of a beta distribution is optimal when the data is continuous and restricted to the interval (0,1) as in this case where the response is a ratio. As it is possible to observe from Figure \@ref(fig:rwesponse), the response variable has really small positive values and its density distribution is bimodal and not symmetric. The Beta distribution seems to be optimal for this case because it is characterizes by a high level of flexibility in terms of the assortment of density shapes that can be accommodated [@Household].
+
+Equation \@ref(eq:model) is made up of the beta prior that has a specific parametrization to incorporate in an easiest way the covariate information. The parameters are: $a = \mu_i\phi$ and $b=\phi(1-\mu_i))$. $\mu$ is defined as $\mu = \frac{a}{a+b}$ and $\phi=a+b$ is a parameter related to the variance of the distribution that is equal to $\sigma^2 = \frac{\mu(1-\mu)}{\phi+1}$. As a consequence, variance increases as $\phi$ decreases. Another important result is the fact that the variance previously defined is not constant because it depends on $\mu_i$ and in this way the model is even more appropriate to describes not-symmetric data.
+The link function is the logit link, therefore $\mu_i = \frac{exp(x_i^T\boldsymbol\beta)}{1+exp(x_i^T\boldsymbol\beta)}$. Finally, $\phi$ is distributed as a Gamma density with parameters $\alpha$ and $\beta$ because it is always positive.
+
+## Parameters Choice
+
+The parameter $\phi$ is distributed as a $Gamma(10, 0.1)$ where shape = 10 and rate = 0.1 with $E(X)= \frac{shape}{rate}$ and $Var(X)=\frac{shape}{rate^2}$. The value are chosen so that the variance is relatively big and therefore the distribution of $\phi$ is weakly informative. At the same time, the mean has to be evaluated in relation to the variance of the beta distribution previously defined. It is required to be small so that the variance of the beta will be relatively large compared to the average values of the response, but at the same time it should be quite large because the order of magnitude of the response variable is really small ($10^{-7}$).
+Finally, we assume a simple non-informative prior for the coefficients $\beta_j$: centered in 0 and with a large variance (precision equal to 0.1).
+
+# Model Selection
+The best models among the $2^p$ models can be selected with spike and slab model defined as follow:
+
+\begin{align}
+\begin{split}
+\beta_j \mid \sigma_j^2 &\sim N(0, \sigma_j^2) \\
+\sigma_j^2 \mid c_j, \tau_j, \gamma_j &\sim (1-\gamma_j)\delta_{\tau_j^2}+ \gamma_j \ \delta_{\tau_j^2 \ c_j^2} \\
+\gamma_j \mid \theta &\sim Bern(\theta_j) \\
+\theta_j &\sim Unif(0,1)
+\end{split}
+(\#eq:spandsl)
+\end{align}
+
+The peculiarity of this model is the presence of a variable selection prior for $\beta_j$ that is a combination between a slab component and an almost spike component. This spike and slab priors "induce a positive prior probability on the hypothesis $H_0: \beta_j = 0$" [@Rok2018]. The quasi spike component is defined as a Gaussian with variance $\tau^2>0$ that is a really small value. It is defined as: $\tau = \frac{k}{\sqrt{2 \frac{log(c)c^2}{c^2-1}}}$. The slab component is a normal with large variance defined as: $c^2\tau^2 >0$. The value $\pm k$ defines the points where the two densities intersect and also the distance $[-k, +k]$ needs to be small because it represents an approximation of 0. Considering all these elements the values chosen for c and k are: $c= 200$ and $k=0.001$ and, as a consequence, $\tau^2= 2.359181 10^{-6}$ and the variance of the slab component is equal to $0.003774689$.
+
+
+```{r, echo=FALSE,}
+lm <- lm(Death_ratio~., data_full[,2:15])
+a <- as.data.frame(model.matrix(lm))
+X <- as.matrix(a[, 2:20])
+Y <- as.vector(data_full$Death_ratio)
+```
+
+
+```{r, echo=FALSE}
+#number of observations
+n <- dim(X)[1]
+#number of covariates
+p <- dim(X)[2]
+```
+
+
+```{r, echo=FALSE,}
+###Parameters of the  spike slab prior Set 3
+c_ss <- 200
+intersect <- 0.001
+tau_ss <- intersect / sqrt(2 * log(c_ss) * c_ss ^ 2 / (c_ss ^ 2 - 1))
+```
+
+
+```{r, echo=FALSE}
+#variance of the quasi-spike prior
+tau_ss^2 
+```
+
+```{r, echo=FALSE}
+#variance of the slab
+(tau_ss*c_ss)^2 
+```
+
+
+```{r spikeandslab, results='hide', echo=FALSE, fig.cap="Spike and Slab", fig.show='hide'}
+spslprior <- function(x, mean, tau_ss, c_ss) {
+  0.5 * dnorm(x, mean = mean, sd = tau_ss) + 0.5 * dnorm(x, mean = mean, sd = tau_ss *
+                                                           c_ss)
+}
+quasi_spike <- function(x, mean, tau_ss) {
+  0.5 * dnorm(x, mean = 0, sd = tau_ss)
+}
+
+Slab <- function(x, mean, tau_ss, c_ss) {
+  0.5 * dnorm(x, mean = 0, sd = tau_ss * c_ss)
+}
+ggplot(data.frame(x = c(-0.05, 0.05)), aes(x = x)) +
+  stat_function(
+    fun = spslprior,
+    args = list(
+      mean = 0 ,
+      tau_ss = tau_ss,
+      c_ss = c_ss
+    ),
+    aes(colour = "Spike and Slab Prior"),
+    size = 1.3
+  ) +
+  stat_function(
+    fun = quasi_spike,
+    args = list(mean = 0, tau_ss = tau_ss),
+    aes(colour = "Quasi-Spike Component"),
+    size = 0.5,
+    linetype = "dashed"
+  ) +
+  stat_function(
+    fun = Slab,
+    args = list(
+      mean = 0,
+      tau_ss = tau_ss,
+      c_ss = c_ss
+    ),
+    aes(colour = "Slab Component"),
+    size = 0.5,
+    linetype = "dashed"
+  ) +
+  scale_y_continuous(name = "Prior Density") +
+  scale_colour_manual(
+    "",
+    breaks = c("Spike and Slab Prior", "Quasi-Spike Component", "Slab Component") ,
+    values = c("gray", "red",  "dodgerblue4")
+  ) +
+  theme(legend.position = "bottom")
+```
+
+To be sure to reach the convergence of the chain the value of the iterations (G) has been set equal to 120000, while the burn-in is set equal to 20000. At the same time, to reduce auto correlation within the chain the value of the thinning is set equal to 5. In this way 100000 iterations are saved. The chains created by JAGS are 5 and each of them has a different initial value for $\phi$: 1, 1000, 2000, 3000 and 4000. The initial values for $\beta_j$ and for $\gamma$ are kept constant for all the chains equal to 0.
+
+```{r}
+ssvs_model <- function() {
+  for (i in 1:n) {
+    logit(mu[i]) <- beta0 + inprod(X[i,], beta[])
+    Y[i] ~ dbeta(phi * mu[i], phi * (1 - mu[i]))
+  }
+  ## Parameters that do not depend on the covariates
+  beta0 ~ dnorm(0, 0.1) #Intercept
+  phi ~ dgamma(10, 0.1) # Parameter phi
+  for (j in 1:p) {
+    sig2[j] <-
+      equals(gamma[j], 0) * var_spike + equals(gamma[j], 1) * var_slab
+    prec[j] <- 1 / sig2[j]; beta[j] ~ dnorm(0, prec[j])
+    gamma[j] ~ dbern(theta[j])}; var_spike <- tau2; var_slab  <- cc * tau2
+  for (j in 1:p) {
+    theta[j] ~ dunif(0, 1)}}; tau2 <- tau_ss ^ 2; cc <- c_ss ^ 2
+data_jags <-list("n" = n, "p" = p, "Y" = Y, "X" = as.matrix(X), "tau2" = tau2, "cc" = cc)
+```
+
+
+```{r, echo=FALSE}
+inits1 <-
+  list("beta0" = 0, "beta" = rep(0, length = p), "gamma" = rep(0, p), "phi" =  1) 
+inits2 <-
+  list("beta0" = 0, "beta" = rep(0, length = p),  "gamma" = rep(0, p), "phi" =  1000) 
+inits3 <-
+  list("beta0" = 0, "beta" = rep(0, length = p),  "gamma" = rep(0, p), "phi" =  2000) 
+inits4 <-
+  list("beta0" = 0, "beta" = rep(-0, length = p),  "gamma" = rep(0, p), "phi" =  3000) 
+inits5 <-
+  list("beta0" = 0, "beta" = rep(0, length = p),  "gamma" = rep(0, p), "phi" =  4000) 
+inits <- list(inits1, inits2, inits3, inits4, inits5)
+```
+
+
+```{r}
+####Posterior parameters JAGS  has to save
+params <- c("beta0", "beta", "gamma", "phi")
+## Some other information for the MCMC algorithm
+burn <- 20000; thin <- 5; nit <- burn + 100000
+set.seed(123)
+# spsl <- jags(data = data_jags, inits = inits, parameters.to.save = params,
+# model.file = ssvs_model, n.chains = 5, n.iter = nit, n.thin = thin, n.burnin = burn, DIC = T)
+```
+
+```{r, echo = FALSE}
+#save(spsl,file="spandsl.Rdata")
+load("spandsl.Rdata")
+output <- data.frame(spsl$BUGSoutput$summary)
+kable(output, digits = 4, caption  = "Summary", align = "c",
+  booktabs = T) %>% kable_styling(latex_options = c("striped", "hold_position"),
+                    position = "center")
+```
+
+## Checking convergence
+
+From Figure \ref{fig:deviance_sp} it is possible to perform a qualitative analysis of the convergence of the posterior chain with the trace-plot of the deviance and the ergodic plot that expresses stationarity. Also from the auto-correlation plot it seems that the auto-correlation is really low. Further checks can be done by looking at the Gelman diagnostic output below that diagnoses convergence because all the values of the upper limit are close to 1.
+
+```{r gel0, echo = FALSE, fig.height=15, fig.width=15}
+output_coda <- as.mcmc(spsl)
+mcmcplot(output_coda)
+l <- gelman.diag(output_coda)$psrf
+output <- cbind(round(l[1:14, ],4), rownames(l[15:28, ]), round(l[15:28, ],4), c(rownames(l[29:41, ]), ""), rbind(round(l[29:41, ],4), c("",""))) # valori perfect
+kable(output, digits = 4, caption  = "Gelman Diagnostic", align = "c", col.names = c("Point.Est.", "Upper CI", "Var", "Point.Est.", "Upper CI","Var", "Point.Est.", "Upper CI"),
+  booktabs = T) %>% kable_styling(latex_options = c("striped", "hold_position"),
+                    position = "center", font_size = 9) %>% column_spec(c(4,7), border_left = T)
+```
+
+![On the left: Autocorrelation plot, ergodic plot and traceplot of the deviance. On the right: Autocorrelation plot, ergodic plot and traceplot of the parameter phi \label{fig:deviance_sp}](Diagnostic.png){width=90%}
+
+
+## Highest posterior density
+
+This method considers the posterior probability of each model and select as the best model the one with the highest posterior probability.
+The procedure is the following one: 
+1) Select all the models visited by the MCMC 
+2) Take into consideration all the unique models among the visited ones and compute their posterior frequencies 
+3) The model with the highest frequency is selected and is the one with highest posterior density
+
+```{r, echo=FALSE}
+## The number of parameter we have saved is
+np <- dim(spsl$BUGSoutput$sims.array)[3]
+## The posterior sample size is
+G <- dim(spsl$BUGSoutput$sims.array)[1]
+th.post <- spsl$BUGSoutput$sims.array[1:G, 1, 1:np]
+```
+
+
+```{r, echo=FALSE}
+cl_gamma <-
+  which(grepl("gamma", colnames(th.post)))
+#We extract the posterior chain of the inclusion variable in gamma in:
+post.g <- as.matrix(th.post[, cl_gamma])
+#First we compute all the models visited by the MCMC
+unique_model <-
+  unique(post.g, MARGIN  = 1)
+```
+
+
+```{r, echo=FALSE}
+#Now we compute the posterior frequencies with which the unique models are visisted
+# freq <-
+#   apply(unique_model, 1, function(b)
+#     sum(apply(post.g, MARGIN = 1, function(a)
+#       all(a == b))))
+#
+# save(freq,file="freq.Rdata")
+load(file = "freq.Rdata")
+```
+
+
+```{r, echo=FALSE}
+#Now we put together the visited models and the frequencies, and at the same time we order the frequencies from the largest to the smallest
+Mat <-
+  cbind(unique_model[order(freq, decreasing = T),], sort(freq, decreasing = T))
+```
+
+
+```{r, echo=FALSE}
+# the HPD model is
+hpd_model <- as.logical(Mat[1, -(length(cl_gamma) + 1)])
+#paste("x", 1:p, sep = "")[hpd_model]
+```
+
+The model with the highest posterior density is the one with the variables: `Tobacco`, `Government_expenditure`, `Pollution`, `IncomeLower-middle-income`, `IncomeUpper-middle-income` and `RegionEurope`.       
+
+## Median probability model
+
+This method will select as significant variables the ones such that the posterior probability of inclusion of the coefficient $\beta_j$ is higher than 0.5.
+To reach this aim, the posterior chain of gamma has been extracted. At this point we compute the sample mean of the posterior chain for each value of gamma is computed obtaining 19 values of the posterior mean corresponding to each variables.
+The variables are then selected if their posterior mean is higher than 0.5.
+
+The variables selected with this method are: `Government_expenditure`, `Pollution`, `RegionAmericas`, `RegionEurope` and `RegionSouth-East Asia`.
+
+
+```{r Mdm, echo=FALSE, fig.height=2, fig.show='hide'}
+post_mean_g <- apply(post.g,2,"mean")
+## to produce a bar plot of the posterior inclusion probabilities
+barplot(post_mean_g,names.arg=colnames(X),main="Posterior inclusion probabilities set 1")
+#Finally we can add a horizontal line
+abline(h=0.5,col="red",lty=2,lwd=3)
+# The variable included in the median probability model are:
+mdm_model<-post_mean_g>0.5
+#mp_model is a logical vector with TRUE if the corresponding
+# parameters is included in to the model FALSE otherwise
+
+## Frequency of the selected variables
+Frequency <- post_mean_g[mdm_model]
+##trick to see which variable we have chosen with the method
+#paste("x",1:p,sep="")[mdm_model]
+```
+
+## Hard selection Shrinkage
+
+Another method that can be used is the hard selection shrinkage that includes in the best model only the variables for which the marginal posterior credible interval does not contain the value $0$.
+
+In particular we started by extracting the posterior chain of the beta variables and then we proceed computing the sample mean and the standard deviation, column by column for each beta. Thus, we can calculate the marginal posterior credible interval and we consider as significant the variables whose range does not include 0.
+
+```{r, echo=FALSE}
+cl_beta <- which(grepl("beta\\[", colnames(th.post)))
+##We extract the posterior chain of the beta variables
+post.beta <- th.post[, cl_beta]
+# then we compute the sample mean , column by columnfor each beta
+mean.beta.post <- apply(post.beta, 2, "mean")
+sd.beta.post <- apply(post.beta, 2, "sd")
+## lower bounds
+lb<- mean.beta.post-sd.beta.post
+ub<- mean.beta.post+sd.beta.post
+CI=cbind(lb,ub)
+hs_model<- apply(CI,1,prod)>0
+```
+
+In Figure \@ref(fig:HS) are shown the posterior intervals that contain or not the 0. All the intervals contain 0, with the exception of X7 which is `UV`, even if there is a bit of uncertainty.
+
+```{r HS, echo=FALSE, fig.cap="Decision interval for Hard Shrinkage", fig.height=2}
+ggplot(data.frame(1:p, mean.beta.post), aes(x=1:p, y=mean.beta.post)) + geom_point() +
+geom_errorbar(aes(ymin=mean.beta.post-sd.beta.post, ymax=mean.beta.post+sd.beta.post), width=0.2, colour="dodgerblue4", alpha=0.9, size=1.3) + geom_hline(yintercept=0,
+                color = "black", size=0.2) +
+  scale_x_discrete(limits= paste("x", 1:p, sep = ""),labels=paste("x", 1:p, sep = "")) +
+  xlab("Variables") +
+  ylab("Posterior Intervals")
+```
+
+
+```{r, echo=FALSE, results='hide'}
+## With the HPD criterion we choose
+paste("x",1:p,sep="")[hpd_model]
+colnames(X)[hpd_model]
+var_hpd <- colnames(X)[hpd_model]
+
+## With the HS criterion
+paste("x",1:p,sep="")[mdm_model]
+colnames(X)[mdm_model]
+var_mdm <- colnames(X)[mdm_model]
+
+## With the HS criterion
+paste("x",1:p,sep="")[hs_model]
+colnames(X)[hs_model]
+var_hs <- colnames(X)[hs_model]
+```
+
+
+```{r, echo=FALSE}
+lvl_income <- colnames(X)[12:14]
+if (any(lvl_income %in% var_hpd)) {
+  pres <- lvl_income[which(lvl_income %in% var_hpd)]
+  var_hpd = var_hpd[-which(var_hpd %in% pres)]
+  var_hpd <- append(var_hpd, lvl_income)
+}
+
+lvl_region <- colnames(X)[15:19]
+if (any(lvl_region %in% var_hpd)) {
+  pres <- lvl_region[which(lvl_region %in% var_hpd)]
+  var_hpd = var_hpd[-which(var_hpd %in% pres)]
+  var_hpd <- append(var_hpd, lvl_region)
+}
+
+if (any(lvl_income %in% var_hs)) {
+  pres <- lvl_income[which(lvl_income %in% var_hs)]
+  var_hs = var_hs[-which(var_hs %in% pres)]
+  var_hs <- append(var_hs, lvl_income)
+}
+
+if (any(lvl_region %in% var_hs)) {
+  pres <- lvl_region[which(lvl_region %in% var_hs)]
+  var_hs = var_hs[-which(var_hs %in% pres)]
+  var_hs <- append(var_hs, lvl_region)
+}
+
+if (any(lvl_income %in% var_mdm)) {
+  pres <- lvl_income[which(lvl_income %in% var_mdm)]
+  var_mdm = var_mdm[-which(var_mdm %in% pres)]
+  var_mdm <- append(var_mdm, lvl_income)
+}
+
+if (any(lvl_region %in% var_mdm)) {
+  pres <- lvl_region[which(lvl_region %in% var_mdm)]
+  var_mdm = var_mdm[-which(var_mdm %in% pres)]
+  var_mdm <- append(var_mdm, lvl_region)
+}
+```
+
+
+# Final Model
+
+At this point we focus out analysis on the model with variables selected with the HPD method.
+Considering the model at Equation 1, the linear predictor will be:
+$logit(\mu_i) = \beta_0 + \beta_1 \ x_{Tobacco} +  \beta_2 \ x_{Government\_expenditure} + \beta_3 \ x_{Pollution} + \beta_4 \ x_{IncomeLow} \ + \beta_5 \ x_{IncomeLower-middle} + \beta_6 \  x_{IncomeUpper-middle} + \beta_7 \ x_{RegionAmericas} + \beta_8 x_{RegionEastern Mediterranean} + \beta_9 \ x_{RegionEurope} + \beta_{10} \ x_{RegionSouth-East Asia} + \beta_{11} \ x_{RegionWestern Pacific}$
+
+The model is implemented using 120000 iterations, with 20000 of burn-in and thinning equal to 5. The number of chains are still 5 with the same initial values used in the spike and slab model.
+
+```{r, echo=FALSE}
+sel <- append(c("(Intercept)"), var_hpd)
+
+X <- model.matrix(lm)[, sel]
+n <- length(Y)
+p <- ncol(X)
+
+data1   <- list(Y = Y,
+                X = X,
+                n = n,
+                p = p)
+params <- c("beta", "phi")
+
+inits1 <-
+  list("beta" = rep(0, length = p), "phi" =  1) 
+inits2 <-
+  list("beta" = rep(0, length = p), "phi" =  1000) 
+inits3 <-
+  list("beta" = rep(0, length = p), "phi" =  2000) 
+inits4 <-
+  list("beta" = rep(0, length = p), "phi" =  3000) 
+inits5 <-
+  list("beta" = rep(0, length = p), "phi" =  4000) 
+inits <- list(inits1, inits2, inits3, inits4, inits5)
+```
+
+
+```{r}
+model_string <- function() {for (i in 1:n) {
+    Y[i] ~ dbeta(phi * mu[i], phi * (1 - mu[i]))
+    logit(mu[i]) <- inprod(X[i, ], beta[])}
+  for (j in 1:p) {
+    beta[j] ~ dnorm(0, 0.1) }                      
+  phi ~ dgamma(10, 0.1)}
+burn <- 20000; nit <- burn + 100000; thin <- 5
+# out1 <- jags(model.file=model_string, data = data1,
+#               inits = inits, parameters.to.save = params, n.iter = nit,
+#               n.burnin = burn, n.thin = thin,n.chains= 5)
+```
+
+
+```{r, echo=FALSE}
+# save(out1,file="out_final_model.Rdata")
+load(file = "out_final_model.Rdata")
+output <- data.frame(out1$BUGSoutput$summary)
+kable(output[,-8], digits = 4, caption  = "Summary", align = "c",
+  booktabs = T) %>% kable_styling(latex_options = c("striped", "hold_position"),
+                    position = "center")
+```
+
+
+```{r postdensity, echo=FALSE, fig.height=5, fig.cap="On the upper part: Posterior density for coefficients 1 and 2. On the lower part: Posterior density of phi. The continous red line represents the mean value of the posterior density. The dotted red lines indicate the first and third quantile of the  distribution. The blue line is the posterior density. The black dotted line is the prior distribution."}
+attach.jags(out1)
+
+phiplot <- as.data.frame(phi) %>%
+  ggplot(aes(x=phi)) +
+    geom_histogram(aes(y=..density..), fill="gray",
+                    color="dodgerblue4",
+                    alpha=0.6) + ggtitle(paste("Posterior density of", expression(phi))) +
+ geom_density(color="dodgerblue4", size=1) +
+  geom_segment(linetype="dashed", color="red", size = 0.8,
+  size = 1,
+  aes(x = quantile(phi, prob = c(0.025)),
+    y = 0,
+    xend = quantile(phi, prob = c(0.025)),
+    yend = 0.00085 )) +
+  geom_segment(linetype="dashed", color="red", size = 0.8,
+  size = 1,
+  aes(x = quantile(phi, prob = c(0.975)),
+    y = 0,
+    xend = quantile(phi, prob = c(0.975)),
+    yend = 0.0008 )) +
+   geom_segment( color="red", size = 0.8,
+  size = 1,
+  aes(x = mean(phi),
+    y = 0,
+    xend = mean(phi),
+    yend = 0.0047 )) +
+  xlab( expression(phi)) +
+  theme(plot.subtitle = element_text(size = 8))+
+  ylab("Density")  + 
+  ggtitle(label = paste("Posterior density of phi"),
+      subtitle = paste(
+        "The posterior median of phi is",
+        round(mean(phi), 4),
+        "\nThe 95% posterior credible interval is: (",
+        round(quantile(phi, prob = c(0.025)), 4),
+        ",",
+        round(quantile(phi, prob = c(0.975)), 4),
+        ")\n",
+        sep = " "
+      )
+    )
+
+pr <- list()
+LegendTitle <- ""
+for (j in 1:2) {
+  chain <- beta[, j]
+  prior_quant <-
+    c(qnorm(0.025, 0, sd = sqrt(1 / 0.001)), qnorm(0.975, 0, sd = sqrt(0.001)))
+  post_quant <- quantile(chain, prob = c(0.025, 0.5, 0.975))
+  post_dens <- approxfun(density(chain, adj = 1))
+  cols <- c("Estimated Posterior"="red","Prior"="black", "Posterior Histogram"= "dodgerblue4", "Intervals" = "red")
+  fill <- c("Estimated Posterior"="red","Prior"="white", "Posterior Histogram"= "gray83", "Intervals" = "red")
+  line_types <- c("Estimated Posterior"=1,"Prior"=2, "Posterior Histogram"= 1, "Intervals" = 2)
+ 
+  pr[[j]] <- ggplot_gtable(ggplot_build(ggplot(as.data.frame(chain), aes(x = chain)) +
+    geom_histogram(
+      aes(y = ..density.., colour = "Posterior Histogram",
+          linetype =  "Posterior Histogram", fill = "Posterior Histogram"),
+      alpha = 0.6
+    ) +
+    xlim(range(chain)) +
+    geom_density(
+      aes(colour = "Estimated Posterior", linetype = "Estimated Posterior", fill = "Estimated Posterior"),
+      color = "dodgerblue4",
+      size = 1, alpha = 0
+    ) +
+    xlab("Chain") +
+    ggtitle(
+      label = paste("Posterior density of beta", j, sep = " "),
+      subtitle = paste(
+        "The posterior median of beta",
+        j,
+        "is",
+        round(post_quant[2], 4),
+        "\nThe 95% posterior CI is: (",
+        round(post_quant[1], 4),
+        ",",
+        round(post_quant[3], 4),
+        ")\n",
+        sep = " "
+      )
+    ) +
+    ylab("Density") +
+    geom_function(
+      aes(colour = "Prior",  linetype =  "Prior", fill = "Prior"),
+      fun = function(x)
+        dnorm(x, 0, sd = sqrt(1 / 0.001)),
+      size = 1
+    ) +
+    geom_segment(
+  size = 1,
+  aes(
+    x = post_quant[1],
+    y = 0,
+    xend = post_quant[1],
+    yend = post_dens(post_quant[1]), color = "Intervals",  linetype =  "Intervals", fill = "Intervals"
+  ),
+  ) +
+    geom_segment(
+  size = 1,
+  aes(
+    x = post_quant[3],
+    y = 0,
+    xend = post_quant[3],
+    yend = post_dens(post_quant[3]),   color = "Intervals", linetype = "Intervals", fill = "Intervals"
+  )
+
+)+
+    geom_segment(size = 1,
+               aes(color = "Estimated Posterior", linetype = "Estimated Posterior", fill = "Estimated Posterior",
+                 x = post_quant[2],
+                 y = 0,
+                 xend = post_quant[2],
+                 yend = post_dens(post_quant[2])
+               ))+
+    geom_segment(
+  size = 1,
+  aes(color = "Intervals",  linetype =  "Intervals", fill = "Intervals",
+    x = prior_quant[1],
+    y = 0,
+    xend = prior_quant[1],
+    yend = dnorm(prior_quant[1], 0, sd = sqrt(1 / 0.001))
+  )
+) +
+    geom_segment(
+  size = 1,
+  aes(color = "Intervals",  linetype =  "Intervals", fill = "Intervals",
+    x = prior_quant[2],
+    y = 0,
+    xend = prior_quant[2],
+    yend = dnorm(prior_quant[2], 0, sd = sqrt(1 / 0.001))
+  )
+) +
+    geom_segment(size = 1,
+               aes(colour = "Intervals",  linetype =  "Intervals",  fill = "Intervals",
+                 x = 50,
+                 y = 0,
+                 xend = 50,
+                 yend = dnorm(50, 0, sd = sqrt(1 / 0.001))
+               )
+               )+
+    theme(plot.subtitle = element_text(size = 8),  
+  legend.position = "none",) +
+    scale_colour_manual(name = LegendTitle, values=cols
+                  ) +
+  scale_linetype_manual(name = LegendTitle, values=line_types) + guides(color = guide_legend(override.aes = list(size = 0.4) ) )+
+  scale_fill_manual(name = LegendTitle, values=fill)
+))
+}
+ggarrange(phiplot, ggarrange(plotlist = pr, ncol = 2), ncol = 1)
+
+```
+
+In the upper part of Figure \@ref(fig:postdensity) are illustrated the posterior density of the intercept (on the left) and of the coefficient $\beta_2$ corresponding to the variable `Tobacco`. The mean of $\beta_1$ is a negative value equal to -7.5984 and its entire credible interval includes negative values. In contrast, the mean coefficient of the variable `Tobacco` is a positive value equal to 0.0107. In this case the credible interval always includes the 0, therefore some possible values of the coefficient are negative. The interpretation of this coefficient is that an increase of $1\%$ in the cigarette smoking prevalence, ceteris paribus, has a positive increase on the logit of the mean of the death ration of a country.
+As it is possible to notice in the lower part of Figure \@ref(fig:postdensity), the convergence value of $\phi$ is very high, it is equal to 623.0315. As represented in the graph the 95% values generated by the posterior density of $\phi$ lie within the interval 468.3747 and the third is equal to 796.9911.
+
+Concerning the coefficients of the qualitative variables, $\beta_{5:7}$ are the coefficients of the levels of Income, where the baseline is the level High-income. On the other hand, $\beta_{8:12}$ are the coefficients of the levels of Region, where the baseline is the region Africa.
+In Figure \@ref(fig:boplotcat) we can notice that the level of Low-income has the smallest impact in the logit of the mean of the mortality ratio. The others levels of `Income` have higher but negative coefficients, anyway they do not differ substantially. In conclusion, we can say that higher is the Income per country, higher is the probability that that country has an higher value of the logit of the mean of the ratio of deaths caused by lungs cancer.
+Moreover, in Figure \@ref(fig:boplotcat) it's evident that the region Europe has the highest impact on the logit of the mean of the mortality ratio, while the baseline, which is Africa, has the smallest. There is an upward trend that starts with the baseline in 0 and increases. However, all coefficients, except a small part of the one corresponding to `Eastern Mediterranean`, have values whose 95% credible interval is positive but close to zero.
+In conclusion, the regions ordered depending on their probability of having, for the logit of the mean, an higher ratio of deaths caused by lungs cancer, are: `Africa`, `Eastern Mediterranean`, `Americas`, `Western Pacific`, `Soth-East Asia` and `Europe` .
+
+
+```{r boplotcat, echo=FALSE, fig.cap="Boxplots of the values of betas for the categorical variables", fig.width=8, fig.height=}
+w<- as.data.frame(beta[,5:7])
+String <- c(w[,1], w[,2], w[,3])
+id <- c(rep(1, dim(w)[1]),rep(2, dim(w)[1]),rep(3, dim(w)[1]))
+w <- as.data.frame(cbind(String, id))
+w$id <- as.factor(id)
+levels(w$id) <- c("Low income", "Lower-Middle Income", "Upper-Middle Income")
+
+b1 <- w %>%
+  ggplot(aes(x=id, y=String, fill = id)) +
+    geom_boxplot(outlier.shape = 3) +
+  theme(
+      legend.position="none",
+      plot.title = element_text(size=11),
+      axis.text.x=element_text(angle=-90, vjust=0.4,hjust=1, size = 5)
+    ) +
+    xlab("Income") +
+    ylab("Beta") +
+  scale_fill_brewer(palette="Blues")
+
+w1<- as.data.frame(beta[,c(9,8,12,11,10)])
+String <- c(w1[,1], w1[,2], w1[,3],w1[,5],w1[,5])
+len <- dim(w1)[1]
+id <- c(rep(1, len),rep(2, len),rep(3, len), rep(4, len), rep(5, len))
+w1 <- as.data.frame(cbind(String, id))
+w1$id <- as.factor(id)
+levels(w1$id) <- c("Eastern Mediterranean", "Americas", "Western Pacific", "South-East Asia", "Europe")
+
+b2 <- w1 %>%
+  ggplot(aes(x=id, y=String, fill = id)) +
+    geom_boxplot(outlier.shape = 3) +
+  theme(
+      legend.position="none",
+      plot.title = element_text(size=11),
+      axis.text.x=element_text(angle=-90, vjust=0.4,hjust=1, size = 5)
+    ) +
+    xlab("Region") +
+    ylab("Beta") +
+  scale_fill_brewer(palette="Blues")
+
+ggarrange(b1, b2, ncol = 2)
+```
+
+
+```{r, echo=FALSE}
+detach.jags()
+```
+
+## Checking convergence
+
+```{r gel01, echo=FALSE}
+attach.jags(out1)
+output_coda1 <- as.mcmc(out1)
+l1 <- gelman.diag(output_coda1)$psrf
+
+output <- cbind(round(l1[1:7, ],4), rownames(l1[8:14, ]), round(l1[8:14, ],4)
+                #, rownames(l1[7:9, ]), round(l1[7:9, ],4)
+                )
+kable(output, digits = 4, caption  = "Gelman Diagnostic", align = "c", col.names = c("Point.Est.", "Upper CI", "Var", "Point.Est.", "Upper CI"
+                                                                                     #, "Var", "Point.Est.", "Upper CI"
+                                                                                     ),
+  booktabs = T) %>% kable_styling(latex_options = c("striped", "hold_position"),
+                    position = "center") %>% column_spec(c(4), border_left = T)
+#mcmcplot(out1)
+detach.jags()
+```
+
+
+![On the left: Autocorrelation plot, ergodic plot and traceplot of the deviance. On the center: Autocorrelation plot, ergodic plot and traceplot of the parameter phi. On the right: Autocorrelation plot, ergodic plot and traceplot of beta 12 \label{fig:deviance_sp1}](Diagnostic_out1.jpg){width=90%}
+
+An important consideration, in order to verify the success of the MCMC, is to check the convergence and dependence through all the trace-plots, ergodic plots and acf plots. In Figure \ref{fig:deviance_sp1} are reported the graphs for the `deviance`, for the parameter `phi` and for the coefficient $\beta_{12}$. The plots seem to have a good mixing: the chains seem to be not auto-correlated and they converge apparently at the same value. For others coefficients beta the convergence was still good, while the autocorrelation wasn't really small, in particular with low values of lag.
+In order to have a quantitative analysis for the convergence we performed the Gelman Diagnostic (Table \@ref(tab:gel01)), that confirms the good results previously mentioned, since all the values of the potential scale reduction factor are very close to $1$. However, as regards the auto-correlation we have computed the Effective Sample Size, that we can see in the last column of the summary. We notice that there is no substantial discrepancy between the number of iterations and the ESS. Therefore, also the auto-correlation shouldn't be a problem of our chains.
+
+
+## Model Checking:
+
+### Posterior predictive distributions
+
+A Bayesian approach to verify the adequacy of the model is through the posterior predictive distributions, the idea is to use the observed values a statistic (we tried with the mean, the first and the third quantile) and check its plausibility against the corresponding posterior predictive distribution.
+
+```{r postpred, echo=FALSE, fig.cap="Model checking. First plot: posterior distribution of the mean with vertical line representing the observed value of the mean.   Second plot: posterior distribution of the probability of the death ratio of being less than the first quantile of the observed values. The vertical line representing the observed value of this statistic. Third plot: considering the probability of the death ratio of being larger than the third quantile of the observed values. The vertical line represents the observed value of this statistic", fig.height= 3}
+attach.jags(out1)
+sel <-
+  append(c("(Intercept)"), var_hpd)
+Y <- data_cancer$Death_ratio
+X <- model.matrix(lm)[, sel]
+n <- length(Y)
+p <- ncol(X)
+
+t.mc <- NULL
+y_hat <- matrix(nrow = 10000, ncol = 183)
+for (s in 1:10000) {
+  mu <- vector()
+  for (i in 1:n) {
+    mu[i] <- inv.logit(sum(X[i, sel] * beta[s, ]))
+  }
+ 
+  alpha <- phi[s, ] * mu
+  beta1 <- phi[s, ] * (1 - mu)
+ 
+  y_hat[s, ] <- rbeta(length(Y), alpha, beta1)
+ 
+}
+
+color_scheme_set("brightblue")
+
+q1 <- quantile(Y, 0.25)
+q3 <- quantile(Y, 0.75)
+
+a1 <- ppc_stat(y = Y, yrep = y_hat, stat = mean) + theme(aspect.ratio = 1, plot.title = element_text(color = "blue4", hjust = 0.5)) + scale_x_continuous(n.breaks = 3) + legend_none() +
+  labs(title = "T = mean")
+ 
+a2 <- ppc_stat(  Y,
+  y_hat,
+  stat = function(y)
+    quantile(y, 0.25)
+) + theme(aspect.ratio = 1, legend.position = "none", plot.title = element_text(color = "blue4", hjust = 0.5))   + scale_x_continuous(n.breaks = 3) +  labs(title = "T = I quantile")
+a3 <- ppc_stat(
+  Y,
+  y_hat,
+  stat = function(y)
+    quantile(y, 0.75)
+ )+ theme(aspect.ratio = 1, legend.position = "none", plot.title = element_text(color = "blue4", hjust = 0.5))   + scale_x_continuous(n.breaks = 3) +  labs(title = "T = III quantile")
+
+
+grid.arrange(a1, a2, a3, nrow = 1)
+```
+
+Observing Figure \@ref(fig:postpred) the conclusion could be that the model is not good if we are interested in the average of the ratio of cancer deaths, we can see that the observed value (blue line) is very far from the distribution, that means that is a rare event that with the posterior predictive distribution the value would be the observed mean value. However, if we are interested in the first quantile (25%) we can see from Figure \@ref(fig:postpred) that the observed value lies inside the distribution, so the value is plausible and the model is useful for that statistic. Finally, the model is not useful and not good with regard to the third quantile, the observed value, as for the mean, lies completely out of the distribution.
+
+### Bayesian residuals and model adequacy
+
+Another approach in order to verify if the model is suitable for our data is using the Bayesian residuals, which is the standardization of the observed response minus the predicted one ($R_i=\frac{y_i-\hat{Y^*_i}}{\sigma}$).
+A model can be considered good if the $\hat{Y^*}$'s are quite similar to the $y$ values, namely if the Bayesian residuals are around 0.
+Though, we can see in Figure \@ref(fig:modelade) that the predicted Y doesn't coincide with the real values, in particular they are overestimated, while in Figure \@ref(fig:modelade) we notice that Bayesian residuals are quite around 0.
+
+```{r modelade, echo=FALSE, fig.cap="Model adequacy", fig.height=4, fig.width=10}
+Xstar <- X
+G <- 10000
+
+mu <- matrix(nrow = G, ncol = n)
+bres <- matrix(nrow = G, ncol = n)
+sigma2 <- matrix(nrow = G, ncol = n)
+for (g in 1:G) {
+  for (i in 1:n) {
+    mu[g, i] <- inv.logit(sum(X[i, sel] * beta[g, ]))
+    sigma2[g, i] <- mu[g, i] * (1 - mu[g, i]) / (phi[g] + 1)
+  }
+  bres[g, ] <- (Y - y_hat[g, ]) / sqrt(sigma2[g, ])
+}
+
+# The mean predicted value
+hat_ystar <- apply(y_hat, 2, mean)
+# 95% Credible bounds for the Bayesian Residuals
+ci_bres <- apply(bres, 2, quantile, prob = c(0.025, 0.975))
+# The average of the Bayesian rediduals
+hat_bres <- apply(bres, 2, mean)
+
+g1 <- ggplot(data.frame(Y,
+  hat_ystar), aes(x = Y, y = hat_ystar)) +
+  geom_point(
+        color="dodgerblue4",
+        fill="dodgerblue4",
+        shape=21
+        )+
+  xlim(0, 0.0013)+
+  ylim(0, 0.0013)+
+ geom_abline(intercept = 0, color = "red",  size=0.2) +
+  xlab( expression(Y[i])) +
+  ylab( expression(paste("E(", y[i], "*|", y[1:n], ")")))
+
+
+
+g2 <- ggplot(data.frame(hat_bres, Y, ymin=ci_bres[1, ], ymax=ci_bres[2, ]), aes(y=hat_bres, x=Y)) +
+  geom_pointrange(aes(ymin=ci_bres[1, ], ymax=ci_bres[2, ]),colour="dodgerblue4", alpha=0.6, fatten = 2, size=0.2, shape=18) +
+  geom_point(aes(y=hat_bres, x=Y),colour="dodgerblue4",size=2,shape=18)+
+  geom_hline(yintercept=0,
+                color = "black", size=0.1) +
+    geom_hline(yintercept= -1.96,
+                color = "red", size=0.1) +
+    geom_hline(yintercept=+1.96,
+                color = "red", size=0.1) +
+  xlim(0, 0.0009) +
+  ylim(c(-4, 2)) +
+  xlab( expression(y[i])) +
+  ylab("Credible intervals Bayesian Residuals")
+
+grid.arrange(g1, g2,
+          ncol = 2, nrow = 1)
+
+detach.jags()
+```
+
+
+
+```{r, echo=FALSE}
+rm(X, sel, n, p)
+```
+
+```{r, echo=FALSE}
+sel <-
+  append(c("(Intercept)"), var_mdm)
+
+X <- model.matrix(lm)[, sel]
+n <- length(Y)
+p <- ncol(X)
+
+data1   <- list(Y = Y,
+                X = X,
+                n = n,
+                p = p)
+params <- c("beta", "phi")
+
+inits1 <-
+  list("beta" = rep(0, length = p), "phi" =  1) 
+inits2 <-
+  list("beta" = rep(0, length = p), "phi" =  1000) 
+inits3 <-
+  list("beta" = rep(0, length = p), "phi" =  2000) 
+inits4 <-
+  list("beta" = rep(0, length = p), "phi" =  3000) 
+inits5 <-
+  list("beta" = rep(0, length = p), "phi" =  4000) 
+inits <- list(inits1, inits2, inits3, inits4, inits5)
+```
+
+
+```{r, echo=FALSE}
+model_string <- function() {
+  for (i in 1:n) {
+    Y[i]       ~ dbeta(phi * mu[i], phi * (1 - mu[i]))
+    logit(mu[i]) <- inprod(X[i, ], beta[])
+  }
+ 
+  for (j in 1:p) {
+    beta[j] ~ dnorm(0, 0.1)
+  }                        
+ 
+  phi ~ dgamma(10, 0.1)
+}
+
+burn <- 20000
+nit <- burn + 100000
+thin <- 5
+
+
+# out2 <- jags(model.file=model_string,
+#               data = data1,
+#               inits = inits,
+#               parameters.to.save = params,
+#               n.iter = nit,
+#               n.burnin = burn,
+#               n.thin = thin,
+#               n.chains= 5
+# )
+```
+
+
+```{r, echo=FALSE, results='hide'}
+#save(out2,file="out2_final_model.Rdata")
+load(file = "out2_final_model.Rdata")
+attach.jags(out2)
+
+output <- data.frame(out2$BUGSoutput$summary)
+kable(output, digits = 4, caption  = "Summary", align = "c",
+  booktabs = T) %>% kable_styling(latex_options = c("striped", "hold_position"),
+                    position = "center")
+```
+
+
+```{r gel1, echo=FALSE, results='hide'}
+output_coda2 <- as.mcmc(out2)
+#mcmcplot(out2)
+l <- data.frame(gelman.diag(output_coda2)$psrf)
+kable(l, digits = 4, caption  = "Gelman Diagnostic", align = "c", col.names = c("Point.Est.", "Upper CI"),
+  booktabs = T) %>% kable_styling(latex_options = c("striped", "hold_position"),
+                    position = "center")
+```
+
+
+```{r, echo=FALSE}
+detach.jags()
+```
+
+
+
+```{r, echo=FALSE}
+rm(X, sel, n, p)
+```
+
+
+```{r, echo=FALSE}
+sel <-
+  append(c("(Intercept)"), var_hs) 
+
+X <- model.matrix(lm)[, sel]
+n <- length(Y)
+p <- ncol(X)
+
+data1   <- list(Y = Y,
+                X = X,
+                n = n,
+                p = p)
+params <- c("beta", "phi")
+inits1 <-
+  list("beta" = rep(0, length = p), "phi" =  1) 
+inits2 <-
+  list("beta" = rep(0, length = p), "phi" =  1000) 
+inits3 <-
+  list("beta" = rep(0, length = p), "phi" =  2000) 
+inits4 <-
+  list("beta" = rep(0, length = p), "phi" =  3000) 
+inits5 <-
+  list("beta" = rep(0, length = p), "phi" =  4000) 
+inits <- list(inits1, inits2, inits3, inits4, inits5)
+```
+
+
+```{r, echo=FALSE}
+model_string <- function() {
+  for (i in 1:n) {
+    Y[i]       ~ dbeta(phi * mu[i], phi * (1 - mu[i]))
+    logit(mu[i]) <- inprod(X[i, ], beta[])
+  }
+ 
+  for (j in 1:p) {
+    beta[j] ~ dnorm(0, 0.1)
+  }                        
+ 
+  phi ~ dgamma(10, 0.1)
+}
+
+burn <- 20000
+nit <- burn + 100000
+thin <- 5
+
+# out3 <- jags(model.file=model_string,
+#               data = data1,
+#               inits = inits,
+#               parameters.to.save = params,
+#               n.iter = nit,
+#               n.burnin = burn,
+#               n.thin = thin,
+#               n.chains= 5,
+#               DIC = TRUE
+# )
+```
+
+
+```{r, echo=FALSE, results='hide'}
+#save(out3,file="out3_nuovo.Rdata")
+load(file = "out3_nuovo.Rdata")
+attach.jags(out3)
+output <- data.frame(out3$BUGSoutput$summary)
+kable(output, digits = 4, caption  = "Summary", align = "c",
+  booktabs = T) %>% kable_styling(latex_options = c("striped", "hold_position"),
+                    position = "center")
+```
+
+
+```{r gel3, echo=FALSE, results='hide'}
+output_coda3 <- as.mcmc(out3)
+#mcmcplot(out3)
+l <- data.frame(gelman.diag(output_coda3)$psrf)
+kable(l, digits = 4, caption  = "Gelman Diagnostic", align = "c", col.names = c("Point.Est.", "Upper CI"),
+  booktabs = T) %>% kable_styling(latex_options = c("striped", "hold_position"),
+                    position = "center")
+detach.jags()
+```
+
+
+# Best models comparison
+
+Despite the method established as the choice of variables was the HPD one we decided to implement a Beta regression model also using the variables of the other two methods illustrated in paragraphs 4.3 and 4.4. The second model was constructed using as covariates the variables `Government_expenditure`, `Pollution` and `Region`, as established for the MDM criteria. The third model has as only covariate the variable `UV`, as established using the HS criteria. We repeated the same procedure we used for the HPD model. We then checked the convergence and the auto-correlation of the chains of both the models.
+
+The three best models obtained with these approaches can be compared with the Deviance Information Criterion.
+This method takes into account both the goodness of fit and the complexity of the model: $DIC = \bar{D} + P_D$.
+$\bar{D}$ is the posterior mean deviance that is equal to: $\bar{D} = \frac{1}{G}\sum_{g=1}^G D(\theta_g)$ and measures the goodness of fit. $P_D$ is a measure of model complexity and is based on the asymptotic representation of the likelihood and it is: $P_D = \bar{D} - D(\hat\theta)$. $D(\hat\theta)$ is the deviance of the posterior mean of $\theta$.
+
+As it is possible to observe from Table \@ref(tab:dic), the DIC of the models are not really different, in fact the difference between the first and the third model is $19.268$ and between the first and the second is even less. Moreover, most of this difference is caused by the higher complexity of the first model that considers $11$ regressors, while the third model is built considering only $1$ regressor.
+
+```{r dic, echo=FALSE}
+d1 <- (dim(out1$BUGSoutput$summary)[1] - 1)
+d2 <- dim(out2$BUGSoutput$summary)[1]-1
+d3 <- dim(out3$BUGSoutput$summary)[1]-1
+DIC <- data.frame(c(out1$BUGSoutput$DIC, out1$BUGSoutput$pD, out1$BUGSoutput$summary[d1, 1]), c(out2$BUGSoutput$DIC, out2$BUGSoutput$pD, out2$BUGSoutput$summary[d2, 1]), c(out3$BUGSoutput$DIC, out3$BUGSoutput$pD, out3$BUGSoutput$summary[d3, 1]))
+rownames(DIC) <- c("DIC", "pD", "Deviance")
+
+kable(DIC,
+  digits = 3,
+  align = "c",
+  booktabs = T,
+  caption = "DIC", row.names = TRUE,
+  col.names = c("Model 1", "Model 2", "Model 3")) %>% kable_styling(
+    latex_options = c("striped", "hold_position"), position = "center")
+
+```
+
+
+\newpage
+
+# References
